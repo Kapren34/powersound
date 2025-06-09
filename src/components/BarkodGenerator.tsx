@@ -32,9 +32,9 @@ const BarkodGenerator: React.FC<BarkodGeneratorProps> = ({ barkod, urunAdi, mode
   };
 
   return (
-    <div className="flex flex-col items-center p-4 border border-gray-200 rounded-lg bg-white">
-      <p className="text-sm text-gray-700 mb-2">{urunAdi}</p>
-      {model && <p className="text-xs text-gray-500 mb-2">{model}</p>}
+    <div className="barkod-container flex flex-col items-center p-4 border border-gray-200 rounded-lg bg-white">
+      <div className="urun-bilgi">{urunAdi}</div>
+      {model && <div className="urun-model">{model}</div>}
       <canvas ref={canvasRef}></canvas>
       <button
         onClick={handlePrint}

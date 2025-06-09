@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Package, Search, Filter, ArrowDown, ArrowUp, Plus, Edit, Download, Trash2, CheckSquare, Square, Scan, Volume2, Sun, Monitor, Laptop, Plug, Box } from 'lucide-react';
+import { Package, Search, Filter, ArrowDown, ArrowUp, Plus, Edit, Download, Trash2, CheckSquare, Square, Scan, Volume2, Sun, Monitor, Laptop, Plug, Box, Printer } from 'lucide-react';
 import { useEnvanter } from '../contexts/EnvanterContext';
 import { useAuth } from '../contexts/AuthContext';
 import { exportToExcel } from '../utils/excelUtils';
@@ -232,6 +232,36 @@ const Depo = () => {
     reader.readAsBinaryString(file);
   };
 
+  const handleBarcodeScan = async (barcode: string) => {
+    try {
+      const { data: product, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('barcode', barcode)
+        .single();
+
+      if (error) {
+        alert('Ürün bulunamadı');
+        return;
+      }
+
+      if (product) {
+        setBarcodeModalProduct(product.id);
+      }
+    } catch (err) {
+      console.error('Barkod tarama hatası:', err);
+      alert('Barkod tarama sırasında bir hata oluştu');
+    }
+  };
+
+  const handleBulkPrint = () => {
+    if (selectedProducts.length === 0) {
+      alert('Lütfen yazdırılacak ürünleri seçin');
+      return;
+    }
+    setShowBulkBarcodeModal(true);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -259,13 +289,21 @@ const Depo = () => {
               Seçili Ürünleri Sil
             </button>
           )}
+          {selectedProducts.length > 0 && (
+            <button
+              onClick={handleBulkPrint}
+              className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200"
+            >
+              <Printer className="h-5 w-5 mr-2" />
+              Seçili Barkodları Yazdır ({selectedProducts.length})
+            </button>
+          )}
           <button
-            onClick={() => setShowBulkBarcodeModal(true)}
-            disabled={selectedProducts.length === 0}
-            className={`inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors duration-200 ${selectedProducts.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+            onClick={() => setShowScanner(true)}
+            className="inline-flex items-center px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200"
           >
-            <Package className="h-5 w-5 mr-2" />
-            Seçili Barkodları Yazdır
+            <Scan className="h-5 w-5 mr-2" />
+            Barkod Tara
           </button>
         </div>
       </div>
@@ -497,6 +535,84 @@ const Depo = () => {
           </table>
         </div>
       </div>
+
+      {showScanner && (
+        <BarcodeScanner
+          onClose={() => setShowScanner(false)}
+          onScan={handleBarcodeScan}
+        />
+      )}
+
+      {barcodeModalProduct && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center z-50">
+          <div className="bg-white p-5 rounded-lg shadow-xl max-w-md w-full">
+            <h2 className="text-xl font-bold text-gray-800 mb-4">Barkod</h2>
+            <div className="mb-4">
+              <BarkodGenerator
+                barkod={urunler.find(u => u.id === barcodeModalProduct)?.barkod || ''}
+                urunAdi={urunler.find(u => u.id === barcodeModalProduct)?.ad || ''}
+                model={urunler.find(u => u.id === barcodeModalProduct)?.model}
+                onPrint={() => setBarcodeModalProduct(null)}
+              />
+            </div>
+            <div className="flex justify-end">
+              <button
+                onClick={() => setBarcodeModalProduct(null)}
+                className="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded"
+              >
+                Kapat
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showBulkBarcodeModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center z-50">
+          <div className="bg-white p-5 rounded-lg shadow-xl max-w-2xl w-full">
+            <h2 className="text-xl font-bold text-gray-800 mb-4">Seçili Barkodlar</h2>
+            <div className="flex flex-col gap-8 mb-4">
+              {selectedProducts.map(productId => {
+                const product = urunler.find(u => u.id === productId);
+                if (!product) return null;
+                return (
+                  <div key={productId} className="border border-gray-200 rounded-lg p-4 flex flex-col items-center barkod-container">
+                    <div className="urun-bilgi">{product.ad}</div>
+                    {product.model && <div className="urun-model">{product.model}</div>}
+                    <BarkodGenerator
+                      barkod={product.barkod}
+                      urunAdi={product.ad}
+                      model={product.model}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowBulkBarcodeModal(false);
+                  setSelectedProducts([]);
+                }}
+                className="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded"
+              >
+                Kapat
+              </button>
+              <button
+                onClick={() => {
+                  window.print();
+                  setShowBulkBarcodeModal(false);
+                  setSelectedProducts([]);
+                }}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded flex items-center"
+              >
+                <Printer className="h-5 w-5 mr-2" />
+                Tümünü Yazdır
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
